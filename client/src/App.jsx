@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API = "http://localhost:5000/api/logs";
+const API = "https://logdetect.onrender.com/api/logs";
 
 const emptyForm = {
   timestamp: new Date().toISOString().slice(0, 16),
