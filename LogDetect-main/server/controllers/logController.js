@@ -1,4 +1,4 @@
-const Log = require("../models/Log");
+const Log = require("../models/log");
 const analyzeLog = require("../services/anomalyService");
 
 // Create a new log
