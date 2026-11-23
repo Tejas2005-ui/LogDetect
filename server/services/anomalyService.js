@@ -1,64 +1,38 @@
-const analyzeLog = async (Log, logData) => {
-  let score = 0;
-  const reasons = [];
+const { WINDOW_MS, accountKey, isHttpFailure, loginOutcome, scoreEvent } = require("./loginRules.mjs");
 
-  const statusCode = Number(logData.statusCode);
-  const severity = String(logData.severity || "").toLowerCase();
+async function analyzeLog(Log, log) {
+  const at = log.timestamp == null ? new Date() : new Date(log.timestamp);
+  if (!Number.isFinite(at.getTime())) throw new Error("Timestamp must be a valid date.");
+  const account = accountKey(log);
+  const source = String(log.source || "").trim();
+  const event = { ...log, account, source };
+  const outcome = loginOutcome(event);
+  const counts = { account: 0, source: 0, http: 0 };
+  const subjects = [];
+  if (account) subjects.push({ account });
+  if (source) subjects.push({ source });
 
-  // 1. Server errors
-  if (statusCode >= 500) {
-    score += 45;
-    reasons.push("Server error detected");
-  }
+  if (subjects.length && (outcome !== "other" || isHttpFailure(event))) {
+    const history = Log.find({
+      timestamp: { $gte: new Date(at.getTime() - WINDOW_MS), $lte: at },
+      $or: subjects,
+    }).select("account source eventType statusCode outcome").lean().cursor();
 
-  // 2. Authentication / authorization failures
-  if (statusCode === 401 || statusCode === 403) {
-    score += 30;
-    reasons.push("Authentication or authorization failure");
-  }
-
-  // 3. Critical severity
-  if (severity === "critical") {
-    score += 40;
-    reasons.push("Critical severity event");
-  }
-
-  // 4. Error severity
-  if (severity === "error") {
-    score += 20;
-    reasons.push("Application error detected");
-  }
-
-  // 5. Repeated failures
-  if (logData.source) {
-    const recentFailures = await Log.countDocuments({
-      source: logData.source,
-      statusCode: { $in: [401, 403, 500] },
-      createdAt: {
-        $gte: new Date(Date.now() - 5 * 60 * 1000),
-      },
-    });
-
-    // Include the current request in the calculation
-    const totalFailures = recentFailures + 1;
-
-    if (totalFailures >= 5) {
-      score += 35;
-      reasons.push("Repeated failures from the same source");
+    for await (const previous of history) {
+      if (loginOutcome(previous) === "failure") {
+        if (account && accountKey(previous) === account) counts.account += 1;
+        if (source && previous.source === source) counts.source += 1;
+      }
+      if (source && previous.source === source && isHttpFailure(previous)) counts.http += 1;
     }
   }
-
-  score = Math.min(score, 100);
-
-  const isAnomaly = score >= 60;
-
-  return {
-    isAnomaly,
-    anomalyScore: score,
-    anomalyReason: isAnomaly
-      ? reasons.join(". ")
-      : "No unusual behavior detected",
-  };
-};
+  if (outcome === "failure") {
+    if (account) counts.account += 1;
+    if (source) counts.source += 1;
+  }
+  if (source && isHttpFailure(event)) counts.http += 1;
+  const { anomalyScore, anomalyReason, isAnomaly } = scoreEvent(event, counts);
+  return { anomalyScore, anomalyReason, isAnomaly };
+}
 
 module.exports = analyzeLog;

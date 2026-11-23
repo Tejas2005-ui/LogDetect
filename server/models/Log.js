@@ -2,10 +2,10 @@ const mongoose = require("mongoose");
 
 const logSchema = new mongoose.Schema(
   {
-    timestamp: {
-  type: Date,
-  default: Date.now,
-},
+    timestamp: { type: Date, default: Date.now },
+
+    account: { type: String, trim: true },
+    outcome: { type: String, enum: ["success", "failure", "other"] },
 
     eventType: {
       type: String,
@@ -68,5 +68,8 @@ const logSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+logSchema.index({ source: 1, timestamp: 1 });
+logSchema.index({ account: 1, timestamp: 1 });
 
 module.exports = mongoose.model("Log", logSchema);

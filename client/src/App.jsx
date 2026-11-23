@@ -2,16 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API = "https://logdetect.onrender.com/api/logs";
+const API = import.meta.env.VITE_LOG_API_URL || (import.meta.env.DEV ? "/api/logs" : "https://logdetect.onrender.com/api/logs");
 
-const emptyForm = {
-  timestamp: new Date().toISOString().slice(0, 16),
+function makeEmptyForm() {
+  const now = new Date();
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return {
+  timestamp: localTime.toISOString().slice(0, 16),
+  account: "",
   eventType: "POST /api/login",
   severity: "error",
   source: "192.168.1.10",
   statusCode: 500,
   message: "Internal server error",
-};
+  };
+}
 
 function App() {
   const [logs, setLogs] = useState([]);
@@ -24,7 +29,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(makeEmptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [notifications, setNotifications] = useState(true);
@@ -40,7 +45,7 @@ function App() {
       setLogs(response.data?.data || []);
     } catch (err) {
       console.error(err);
-      setError("Backend connection failed. Make sure server is running on port 5000.");
+      setError("Could not load saved logs. Check the configured API and try again.");
     } finally {
       setLoading(false);
     }
@@ -184,6 +189,11 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const openAdd = () => {
+    setForm(makeEmptyForm());
+    setShowAdd(true);
+  };
+
   const createLog = async (e) => {
     e.preventDefault();
     try {
@@ -202,7 +212,7 @@ function App() {
         await fetchLogs();
       }
       setShowAdd(false);
-      setForm(emptyForm);
+      setForm(makeEmptyForm());
       setToast(created?.isAnomaly ? "Anomaly detected and log saved." : "Log saved successfully.");
       if (notifications && created?.isAnomaly) {
         // Browser notification is optional and only used when permission already exists.
@@ -442,7 +452,7 @@ function App() {
             <div className="quick-actions">
               <button className="secondary-action" onClick={fetchLogs}>↻ Refresh Backend Data</button>
               <button className="secondary-action" onClick={resetDemoFilters}>⌕ Clear Filters</button>
-              <button className="secondary-action" onClick={() => setShowAdd(true)}>＋ Add Test Log</button>
+              <button className="secondary-action" onClick={openAdd}>＋ Add Test Log</button>
             </div>
           </Panel>
 
@@ -460,10 +470,10 @@ function App() {
     return (
       <>
         <section className="stats-grid">
-          <div className="stat-card blue"><div className="stat-icon">▤</div><div className="stat-content"><span>Total Logs</span><strong>{logs.length}</strong><small>All time logs</small></div><div className="mini-chart">╱╲╱╲╱</div></div>
-          <div className="stat-card red"><div className="stat-icon">◇</div><div className="stat-content"><span>Anomalies</span><strong>{anomalyCount}</strong><small>Potential issues</small></div><div className="mini-chart">╱╲╱╲╱</div></div>
-          <div className="stat-card orange"><div className="stat-icon">!</div><div className="stat-content"><span>Errors</span><strong>{errorCount}</strong><small>Error logs</small></div><div className="mini-chart">╱╲╱╲╱</div></div>
-          <div className="stat-card green"><div className="stat-icon">⌁</div><div className="stat-content"><span>System Status</span><strong>Active</strong><small>All systems operational</small></div><div className="mini-chart">╱╲╱╲╱</div></div>
+          <div className="stat-card blue"><div className="stat-icon">▤</div><div className="stat-content"><span>Total Logs</span><strong>{logs.length}</strong><small>All time logs</small></div></div>
+          <div className="stat-card red"><div className="stat-icon">◇</div><div className="stat-content"><span>Anomalies</span><strong>{anomalyCount}</strong><small>Potential issues</small></div></div>
+          <div className="stat-card orange"><div className="stat-icon">!</div><div className="stat-content"><span>Errors</span><strong>{errorCount}</strong><small>Error logs</small></div></div>
+          <div className="stat-card green"><div className="stat-icon">⌁</div><div className="stat-content"><span>System Status</span><strong>{loading ? "Loading" : error ? "Offline" : "Online"}</strong><small>Saved log API</small></div></div>
         </section>
 
         <div className="filter-toolbar">
@@ -517,7 +527,7 @@ function App() {
                     <td><strong className={Number(log.statusCode) >= 400 ? "status-error" : "status-normal"}>{log.statusCode ?? "-"}</strong></td>
                     <td>{log.isAnomaly ? <span className="anomaly yes">● Detected</span> : <span className="anomaly no">● Normal</span>}</td>
                     <td>{log.anomalyScore || 0}</td>
-                    <td>{log.createdAt ? new Date(log.createdAt).toLocaleTimeString() : "-"}</td>
+                    <td>{(log.timestamp || log.createdAt) ? new Date(log.timestamp || log.createdAt).toLocaleTimeString() : "-"}</td>
                     <td><span className="row-arrow">→</span></td>
                   </tr>
                 ))}
@@ -552,27 +562,16 @@ function App() {
         </nav>
 
         <div className="health-card">
-          <div className="health-title"><span>SYSTEM HEALTH</span><span className="health-dot"></span></div>
-          <div className="health-status"><span></span>{error ? "Backend Needs Attention" : "All Systems Operational"}</div>
-          <div className="health-wave">︿﹀︿﹀︿﹀︿﹀︿</div>
-          <div className="health-row"><span>Uptime</span><strong>99.98%</strong></div>
-          <div className="progress"><span style={{ width: "99.98%" }}></span></div>
-          <div className="health-row"><span>Logs Processed</span><strong>{logs.length}</strong></div>
-          <div className="progress purple"><span style={{ width: `${Math.min(logs.length * 6, 100)}%` }}></span></div>
-          <div className="health-row last"><span>Last Updated</span><strong>{new Date().toLocaleTimeString()}</strong></div>
-        </div>
-
-        <div className="pro-card">
-          <div className="pro-header"><strong>Unlock Advanced Insights</strong><span>Pro</span></div>
-          <p>AI-powered analysis, smart alerts and advanced reports.</p>
-          <button onClick={() => navigate("reports")}>✦ View Reports</button>
+          <div className="health-title">SAVED LOGS</div>
+          <div className="health-status">{loading ? "Checking API…" : error ? "API unavailable" : "API connected"}</div>
+          <div className="health-row"><span>Stored records</span><strong>{logs.length}</strong></div>
         </div>
       </aside>
 
       <main className="main-content">
         <header className="top-header">
           <div className="welcome">
-            <h1>{activeSection === "dashboard" ? <>Welcome back, Tejas! <span>👋</span></> : pageTitle}</h1>
+            <h1>{activeSection === "dashboard" ? "Saved log dashboard" : pageTitle}</h1>
             <p>{activeSection === "dashboard" ? "Monitor, analyze and understand your application logs in real-time." : "Smart Log Analyzer — operational monitoring and analysis."}</p>
           </div>
           <div className="header-actions">
@@ -584,8 +583,9 @@ function App() {
         </header>
 
         <div className="refresh-wrapper">
+          <a href="?" className="secondary-action">CSV workspace</a>
           <button className="refresh-btn" onClick={fetchLogs} disabled={loading}>↻ {loading ? "Refreshing..." : "Refresh Logs"}</button>
-          <button className="add-log-btn" onClick={() => setShowAdd(true)}>＋ Add Log</button>
+          <button className="add-log-btn" onClick={openAdd}>＋ Add Log</button>
           {autoRefresh && <span className="live-indicator">● Auto refresh ON</span>}
         </div>
 
@@ -599,11 +599,12 @@ function App() {
           <div className="details-overlay" onClick={() => setSelectedLog(null)} />
           <aside className="details-panel">
             <div className="details-panel-header"><div><h2>Log Details</h2><p>Event information and analysis</p></div><button className="details-close" onClick={() => setSelectedLog(null)}>×</button></div>
-            <div className="details-status"><div className={`details-status-icon ${selectedLog.severity}`}>!</div><div><span className={`severity ${String(selectedLog.severity || "").toLowerCase()}`}>{selectedLog.severity}</span><small>{selectedLog.createdAt ? new Date(selectedLog.createdAt).toLocaleString() : "Time unavailable"}</small></div></div>
+            <div className="details-status"><div className={`details-status-icon ${selectedLog.severity}`}>!</div><div><span className={`severity ${String(selectedLog.severity || "").toLowerCase()}`}>{selectedLog.severity}</span><small>{(selectedLog.timestamp || selectedLog.createdAt) ? new Date(selectedLog.timestamp || selectedLog.createdAt).toLocaleString() : "Time unavailable"}</small></div></div>
             <div className="details-info">
               <InfoRow label="Event Type" value={selectedLog.eventType} />
               <InfoRow label="Severity" value={selectedLog.severity} />
               <InfoRow label="Source" value={selectedLog.source} />
+              {selectedLog.account && <InfoRow label="Account" value={selectedLog.account} />}
               <InfoRow label="Status Code" value={selectedLog.statusCode ?? "-"} danger={Number(selectedLog.statusCode) >= 400} />
               <div className="info-row"><span>Anomaly Status</span>{selectedLog.isAnomaly ? <span className="anomaly yes">● Detected</span> : <span className="anomaly no">● Normal</span>}</div>
               <InfoRow label="Anomaly Score" value={`${selectedLog.anomalyScore || 0} / 100`} />
@@ -631,6 +632,7 @@ function App() {
             <label>Timestamp<input type="datetime-local" value={form.timestamp} onChange={(e) => setForm({ ...form, timestamp: e.target.value })} required /></label>
             <label>Event Type<input value={form.eventType} onChange={(e) => setForm({ ...form, eventType: e.target.value })} required /></label>
             <div className="form-two"><label>Severity<select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}><option>info</option><option>warning</option><option>error</option><option>critical</option></select></label><label>Status Code<input type="number" value={form.statusCode} onChange={(e) => setForm({ ...form, statusCode: e.target.value })} /></label></div>
+            <label>Account (optional)<input value={form.account} onChange={(e) => setForm({ ...form, account: e.target.value })} /></label>
             <label>Source<input value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} required /></label>
             <label>Message<textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows="3" /></label>
             <div className="modal-actions"><button type="button" className="secondary-action" onClick={() => setShowAdd(false)}>Cancel</button><button className="primary-action" disabled={submitting}>{submitting ? "Analyzing..." : "Create & Analyze"}</button></div>
