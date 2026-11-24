@@ -7,6 +7,7 @@ import {
 import sampleText from "./data/sample-logins.csv?raw";
 import { parseCsv } from "./analysis/csv.js";
 import { scanRows } from "./analysis/scan.js";
+import { forgetUpload, rememberUpload, restoreUpload } from "./analysis/tabUpload.js";
 import { dateLabel, num, sampleUrl } from "./analysis/format.js";
 import { EventDialog, FindingDialog, ImportDialog, InvalidRows } from "./components/Dialogs.jsx";
 import EventsTable from "./components/EventsTable.jsx";
@@ -47,8 +48,16 @@ function Stat({ icon: Icon, label, value, note, color }) {
     <strong className="stat-number">{num(value)}</strong><small>{note}</small></div>;
 }
 
+function initialWorkspace() {
+  try {
+    return { dataset: restoreUpload() ?? example, notice: "" };
+  } catch {
+    return { dataset: example, notice: "This tab could not restore the previous file. Upload your CSV again to analyze it." };
+  }
+}
+
 function Workspace() {
-  const [dataset, setDataset] = useState(example);
+  const [{ dataset, notice }, setWorkspace] = useState(initialWorkspace);
   const [view, setView] = useState("overview");
   const [mobile, setMobile] = useState(false);
   const [dialog, setDialog] = useState(null);
@@ -63,7 +72,21 @@ function Workspace() {
   const navigate = (next) => { setView(next); setMobile(false); window.scrollTo(0, 0); };
   const onEvent = (data) => setDialog({ type: "event", data });
   const onFinding = (data) => setDialog({ type: "finding", data });
-  const load = (data) => { setDataset(data); setVersion((v) => v + 1); setDialog(null); navigate("overview"); };
+  function load({ csv, ...data }) {
+    let notice = "";
+    try {
+      if (data.sample) forgetUpload();
+      else rememberUpload(data.name, csv);
+    } catch {
+      notice = data.sample
+        ? "This browser could not clear the saved upload. It may reappear after a refresh."
+        : "Analysis is ready. This browser could not keep the file for refresh, so you may need to upload it again.";
+    }
+    setWorkspace({ dataset: data, notice });
+    setVersion((v) => v + 1);
+    setDialog(null);
+    navigate("overview");
+  }
 
   return <div className="ld-app"><a className="skip-link" href="#workspace-main">Skip to content</a>
     <Sidebar view={view} navigate={navigate} dataset={dataset} findings={findings.length} mobile={mobile} close={() => setMobile(false)} />
@@ -80,6 +103,7 @@ function Workspace() {
             <span className="dataset-date"><CalendarDays size={15} />{coverage}</span></div>
           {!dataset.sample && <button className="text-button" onClick={() => load(example)}>Load sample</button>}
         </div>
+        {notice && <p className="session-notice" role="status">{notice}</p>}
         {!!dataset.errors.length && <InvalidRows errors={dataset.errors} />}
         <div key={version} className="view-content">
           {view === "overview" && <>

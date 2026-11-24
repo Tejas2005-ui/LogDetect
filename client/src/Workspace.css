@@ -78,6 +78,7 @@
 .ld-app .text-button, .ld-app .text-link { padding: 0; border: 0; background: transparent; color: #5a47c2; font-size: .85rem; }
 .text-button:hover, .text-link:hover { text-decoration: underline; }
 .dataset-line { justify-content: space-between; gap: 16px; margin: 19px 0 23px; }
+.ld-app .session-notice { padding: 10px 14px; margin-bottom: 16px; border-radius: 7px; background: #fff2df; color: #784b14; font-size: .88rem; }
 .file-context { flex-wrap: wrap; gap: 9px 16px; min-width: 0; }
 .file-name, .dataset-date { gap: 6px; min-width: 0; color: var(--dim); font-size: .81rem; }
 .file-name { max-width: min(30vw, 280px); }
