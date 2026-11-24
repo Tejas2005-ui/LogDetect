@@ -46,8 +46,9 @@ export function ImportDialog({ onClose, onImport }) {
     try {
       if (!/\.csv$/i.test(file.name)) throw new Error("Choose a file with the .csv extension.");
       if (file.size > MAX_BYTES) throw new Error("Choose a CSV smaller than or equal to 5 MB.");
-      const parsed = parseCsv(await file.text());
-      if (id === request.current) setPreview({ name: file.name, ...parsed });
+      const csv = await file.text();
+      const parsed = parseCsv(csv);
+      if (id === request.current) setPreview({ name: file.name, csv, ...parsed });
     } catch (err) {
       if (id === request.current) setError(err.message);
     } finally {
@@ -55,7 +56,7 @@ export function ImportDialog({ onClose, onImport }) {
     }
   }
   return <Dialog title="Upload login CSV" onClose={onClose} wide>
-    <p className="dialog-intro">Preview your records before running the detector. The file is processed in this browser.</p>
+    <p className="dialog-intro">Preview your records, then analyze the file. This tab remembers your analyzed CSV when you refresh.</p>
     <input className="visually-hidden" tabIndex="-1" aria-label="Choose CSV file" ref={input} type="file" accept=".csv,text/csv" onChange={(e) => { readFile(e.target.files[0]); e.target.value = ""; }} />
     <button className={"drop-zone" + (drag ? " dragging" : "")} onClick={() => input.current.click()}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}

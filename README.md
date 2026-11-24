@@ -12,7 +12,7 @@ npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite. The workspace starts with the downloadable [synthetic sample](client/src/data/sample-logins.csv). It contains **142 events, 21 failed logins and 6 flagged events in 4 findings**. The CSV stays in browser memory for the current page session. Use **Event log → Export CSV** to keep a filtered report.
+Open the local address printed by Vite. The workspace starts with the downloadable [synthetic sample](client/src/data/sample-logins.csv). It contains **142 events, 21 failed logins and 6 flagged events in 4 findings**. After you select **Analyze CSV**, the tab keeps a local copy of the file and restores the analysis when you refresh. Choose **Load sample** to clear that copy, or analyze another CSV to replace it. Use **Event log → Export CSV** to keep a filtered report.
 
 ### CSV format
 
